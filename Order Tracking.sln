@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35825.156
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Order Tracking", "Order Tracking\Order Tracking.csproj", "{8010136F-4123-4697-9921-871102B7E6EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8010136F-4123-4697-9921-871102B7E6EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8010136F-4123-4697-9921-871102B7E6EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8010136F-4123-4697-9921-871102B7E6EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8010136F-4123-4697-9921-871102B7E6EA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {340051CA-C5CC-4E3A-BDC8-2E9C3DF9DBD5}
+	EndGlobalSection
+EndGlobal

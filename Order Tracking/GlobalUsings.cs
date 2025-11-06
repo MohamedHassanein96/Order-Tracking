@@ -1,0 +1,8 @@
+﻿global using Microsoft.AspNetCore.Mvc;
+global using Order_Tracking.Contracts;
+global using Order_Tracking.Entities;
+global  using Order_Tracking.Persistence;
+global using Order_Tracking.Services;
+global using StackExchange.Redis;
+global using System.Text.Json;
+global using Order = Order_Tracking.Entities.Order;

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using StackExchange.Redis;
-using System.Text.Json;
+using Order_Tracking.Consts;
 using Order_Tracking.Hubs;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Order_Tracking.Services
 {
@@ -15,28 +15,24 @@ namespace Order_Tracking.Services
             _redis = redis;
             _hubContext = hubContext;
         }
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var db = _redis.GetDatabase();
 
             try
             {
-                await db.StreamCreateConsumerGroupAsync("orders-stream", "orders-group", "$", createStream: true);
-                Console.WriteLine("Consumer group created.");
+                await db.StreamCreateConsumerGroupAsync(RedisConsts.OrdersStream, RedisConsts.OrdersGroup, "$", createStream: true);
             }
-            catch (StackExchange.Redis.RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
+            catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
             {
-                Console.WriteLine("Consumer group already exists.");
             }
 
-            Console.WriteLine("Worker started. Listening to Redis Stream...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 var entries = await db.StreamReadGroupAsync(
-                    key: "orders-stream",
-                    groupName: "orders-group",
+                    key: RedisConsts.OrdersStream,
+                    groupName: RedisConsts.OrdersGroup,
                     consumerName: "worker-1",
                     count: 1,
                     noAck: false
@@ -53,16 +49,31 @@ namespace Order_Tracking.Services
                     var message = entry.Values.First(v => v.Name == "message").Value.ToString();
                     var data = JsonSerializer.Deserialize<OrderMessage>(message);
 
-                    Console.WriteLine($"Received {data.Type} for OrderId: {data.OrderId}");
+                    if (data.Type == "OrderCreated")
+                    {
+                        await _hubContext.Clients.Group(SignalRGroups.Admins)
+                            .SendAsync("ReceiveOrderUpdate", $"Order Created: OrderId {data.OrderId}", cancellationToken: stoppingToken);
+                    }
 
-                    // إرسال الإشعار للـ Hub
-                    await _hubContext.Clients.All.SendAsync("ReceiveOrderUpdate", $"{data.Type} for OrderId: {data.OrderId}");
 
-                    await db.StreamAcknowledgeAsync("orders-stream", "orders-group", entry.Id);
+                    if (data.Type == "OutForDelivery")
+                    {
+                        await _hubContext.Clients.Groups($"user-{data.CustomerId}", SignalRGroups.Delivery)
+                            .SendAsync("ReceiveOrderUpdate", $"{data.Type} for OrderId: {data.OrderId}", cancellationToken: stoppingToken);
+                    }
+
+                    if (data.Type == "Delivered")
+                    {
+                        await _hubContext.Clients.Groups($"user-{data.CustomerId}", SignalRGroups.Admins)
+                            .SendAsync("ReceiveOrderUpdate", $"{data.Type} for OrderId: {data.OrderId}", cancellationToken: stoppingToken);
+                    }
+
+
+                    await db.StreamAcknowledgeAsync(RedisConsts.OrdersStream, RedisConsts.OrdersGroup, entry.Id);
                 }
             }
         }
     }
 
-    public record OrderMessage(string Type, int OrderId);
+    public record OrderMessage(string Type, int OrderId, int CustomerId);
 }

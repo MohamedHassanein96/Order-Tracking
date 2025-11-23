@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Order_Tracking.Hubs;
-using StackExchange.Redis;
 
 namespace Order_Tracking
 {
@@ -9,6 +8,8 @@ namespace Order_Tracking
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+          
 
             // Add services to the container.
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -64,7 +65,7 @@ namespace Order_Tracking
 
 
             app.MapControllers();
-
+            // URL of ordersHub to enable clients connecting with this hub
             app.MapHub<OrdersHub>("/ordersHub");
 
 

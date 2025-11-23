@@ -3,7 +3,7 @@
     public class Order
     {
         public int Id { get; set; }
-        public OrderStatus Status { get; set; } = OrderStatus.Created;
+        public OrderStatus Status { get; set; } = OrderStatus.OrderCreated;
         public decimal TotalAmount { get; set; }
         public string Address { get; set; } = null!;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -15,7 +15,7 @@
     }
     public enum OrderStatus
     {
-        Created,
+        OrderCreated,
         OutForDelivery,
         Delivered
     }

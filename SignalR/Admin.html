@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Order Notifications</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script> 
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h2 { color: #333; }
+        #messages { margin-top: 20px; }
+        .message { padding: 8px; border-bottom: 1px solid #ccc; }
+        .created { background-color: #e0f7fa; }
+        .delivered { background-color: #e8f5e9; }
+    </style>
+</head>
+<body>
+    <h2>📦 Admin Order Notifications</h2>
+    <div id="messages"></div>
+
+    <script>
+        // إنشاء الاتصال بـ SignalR Hub
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("https://localhost:7036/ordersHub") // غيّر البورت لو مشروعك مختلف
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        // Callback عند استقبال رسالة
+        connection.on("ReceiveOrderUpdate", message => {
+            const msgDiv = document.getElementById("messages");
+            const p = document.createElement("p");
+            p.classList.add("message");
+
+            if(message.includes("OrderCreated")) p.classList.add("created");
+            if(message.includes("Delivered")) p.classList.add("delivered");
+
+            p.textContent = "📢 " + message;
+            msgDiv.appendChild(p);
+        });
+
+        // بدء الاتصال والانضمام لمجموعة Admins
+        connection.start()
+            .then(() => {
+                console.log("✅ Connected to SignalR Hub");
+                connection.invoke("JoinAdminGroup"); // الانضمام لمجموعة Admins
+            })
+            .catch(err => console.error("❌ Connection error:", err));
+    </script>
+</body>
+</html>

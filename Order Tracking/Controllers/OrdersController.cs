@@ -26,5 +26,10 @@ namespace Order_Tracking.Controllers
             }
             return BadRequest();
         }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetActive([FromRoute] int id)
+        {
+            return Ok(await _orderService.GetActiveOrdersAsync(id));          
+        }
     }
 }

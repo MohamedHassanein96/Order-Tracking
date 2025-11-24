@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client Order Notifications</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script> 
+     <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 30px;
+        }
+
+        h2 {
+            color: #2e3a59;
+            margin-bottom: 15px;
+            font-size: 26px;
+        }
+
+        #messages {
+            margin-top: 15px;
+        }
+
+        .msg-box {
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 17px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            animation: fadeIn 0.4s ease-in;
+            border-left: 6px solid;
+        }
+
+        /* 📦 Order Created */
+        .created {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+
+        /* 🟨 Out For Delivery */
+        .out {
+            background: #fff8e1;
+            border-left-color: #ff9800;
+        }
+
+        /* 🟩 Delivered */
+        .delivered {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <h2>📦Client Order Notifications</h2>
+    <div id="messages"></div>
+
+    <script>   
+    
+    
+       // اسأل المستخدم عن الـ UserId أول ما الصفحة تفتح
+        const userId = prompt("Please enter your User ID:");
+        // الاتصال بـ Hub بتاعك
+        //Define connection
+
+
+            // دالة لعرض رسالة في الـ HTML
+                function showMessage(message, type = "created") {
+                    const msgDiv = document.getElementById("messages");
+                    const p = document.createElement("p");
+                    p.textContent = "📢 " + message;
+                    p.className = "msg-box " + type; // تضيف Class حسب الحالة لو حبيت
+                    msgDiv.appendChild(p);
+                }
+
+                // --- 1️⃣ أول ما الصفحة تفتح: نجيب الأوردرات الحالية ---
+                fetch(`https://localhost:7036/api/orders/${userId}`)
+                    .then(res => res.json())
+                    .then(orders => {
+                       orders.forEach(order => {
+                            let typeClass = "created";
+                            let statusText = "";
+
+                            switch(order.Status) {
+                                case 0: 
+                                    typeClass = "created";
+                                    statusText = "Order In Preparation"; 
+                                    break;
+                                case 1: 
+                                    typeClass = "out"; 
+                                    statusText = "OutForDelivery"; 
+                                    break;
+                                case 2: 
+                                    typeClass = "delivered"; 
+                                    statusText = "Delivered"; 
+                                    break;
+                            }
+
+                            showMessage(`OrderId: ${order.OrderId}, Status: ${statusText}`, typeClass);
+                        });
+                    })
+                    .catch(err => console.error("❌ Error fetching active orders:", err));
+
+
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("https://localhost:7036/ordersHub") // غيّر البورت لو مشروعك بيستخدم بورت مختلف
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        // define call back func
+        connection.on("ReceiveOrderUpdate", message => {
+            const msgDiv = document.getElementById("messages");
+            const p = document.createElement("p");
+            p.textContent = "📢 " + message;
+            msgDiv.appendChild(p);
+        });
+
+        // Start Connection => this line will negotiate between client and service and determine which technique will be used (web socker or send event or long polling)
+       // connection.start() // i can determine exactly which technique will be used 
+        //    .then(() => console.log("✅ Connected to SignalR Hub"))
+          //  .catch(err => console.error("❌ Connection error:", err));
+
+        connection.start()
+        .then(() => {
+            console.log("✅ Connected to SignalR Hub");
+            connection.invoke("JoinGroup", userId);
+        })
+        .catch(err => console.error("❌ Connection error:", err));
+
+    </script>
+</body>
+</html>

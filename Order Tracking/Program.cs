@@ -9,7 +9,11 @@ namespace Order_Tracking
         {
             var builder = WebApplication.CreateBuilder(args);
 
-          
+            builder.Services.AddControllers().AddJsonOptions(opts =>
+            {
+                opts.JsonSerializerOptions.PropertyNamingPolicy = null;
+            });
+
 
             // Add services to the container.
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

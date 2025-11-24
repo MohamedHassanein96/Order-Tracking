@@ -1,4 +1,6 @@
-﻿using Order_Tracking.Consts;
+﻿using Microsoft.EntityFrameworkCore;
+using Order_Tracking.Consts;
+using System.Linq;
 
 namespace Order_Tracking.Services
 {
@@ -75,6 +77,20 @@ namespace Order_Tracking.Services
 
             return true;
 
+        }
+        public async Task<IEnumerable<OrderTrackingResponse>> GetActiveOrdersAsync(int id)
+        {
+            return await _context.Orders
+                        .Where(x => x.CustomerId == id &&
+                            (
+                                (x.Status == OrderStatus.Delivered &&
+                                 x.UpdatedAt.HasValue &&
+                                 EF.Functions.DateDiffDay(x.UpdatedAt.Value, DateTime.UtcNow) <= 3)
+                                ||
+                                (x.Status != OrderStatus.Delivered)
+                            )
+                        ).Select(x => new OrderTrackingResponse(x.Id, x.Status, x.UpdatedAt, x.UpdatedAt))
+                        .ToListAsync();
         }
     }
 }

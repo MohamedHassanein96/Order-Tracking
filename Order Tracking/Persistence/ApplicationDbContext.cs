@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Order_Tracking.Entities;
 using System.Reflection;
 
 namespace Order_Tracking.Persistence
@@ -8,7 +7,8 @@ namespace Order_Tracking.Persistence
     {
         public DbSet<User> Users { get; set; }
         public DbSet<Order> Orders { get; set; }
-        public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<OrderItems> OrderItems { get; set; }
+        public DbSet<OrderEvents> OrderEvents { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

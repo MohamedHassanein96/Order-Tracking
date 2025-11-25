@@ -10,7 +10,7 @@
         public DateTime? UpdatedAt { get; set; }
         public int CustomerId { get; set; }
         public User Customer { get; set; } = default!;
-        public ICollection<OrderItem> OrderItems { get; set; } = [];
+        public ICollection<OrderItems> OrderItems { get; set; } = [];
 
     }
     public enum OrderStatus

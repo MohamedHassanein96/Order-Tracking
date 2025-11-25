@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Order_Tracking.Consts;
 using Order_Tracking.Hubs;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -7,73 +8,66 @@ namespace Order_Tracking.Services
 {
     public class OrderWorkerService : BackgroundService
     {
-        private readonly IConnectionMultiplexer _redis;
         private readonly IHubContext<OrdersHub> _hubContext;
+        private readonly IServiceProvider _serviceProvider;
 
-        public OrderWorkerService(IConnectionMultiplexer redis, IHubContext<OrdersHub> hubContext)
+        public OrderWorkerService(IHubContext<OrdersHub> hubContext, IServiceProvider serviceProvider)
         {
-            _redis = redis;
             _hubContext = hubContext;
+            _serviceProvider = serviceProvider;
         }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var db = _redis.GetDatabase();
-
-            try
-            {
-                await db.StreamCreateConsumerGroupAsync(RedisConsts.OrdersStream, RedisConsts.OrdersGroup, "$", createStream: true);
-            }
-            catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
-            {
-            }
-
-
             while (!stoppingToken.IsCancellationRequested)
             {
-                var entries = await db.StreamReadGroupAsync(
-                    key: RedisConsts.OrdersStream,
-                    groupName: RedisConsts.OrdersGroup,
-                    consumerName: "worker-1",
-                    count: 1,
-                    noAck: false
-                );
-
-                if (entries.Length == 0)
+                using (var scope = _serviceProvider.CreateScope())
                 {
-                    await Task.Delay(1000, stoppingToken);
-                    continue;
+                    var _context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                    var pendingEvents = await _context.OrderEvents
+                        .Where(e => !e.IsProcessed)
+                        .ToListAsync(stoppingToken);
+
+                    foreach (var orderEvent in pendingEvents)
+                    {
+                        string message = orderEvent.Status switch
+                        {
+                            OrderStatus.OrderCreated => $"Order {orderEvent.OrderId}, Status: Order in Preparation",
+                            OrderStatus.OutForDelivery => $"Order {orderEvent.OrderId}, Status: Out For Delivery",
+                            OrderStatus.Delivered => $"Order {orderEvent.OrderId}, Status: has been Delivered",
+                            _ => $"Order {orderEvent.OrderId} updated: {orderEvent.Status}"
+                        };
+
+                        if (orderEvent.Status == OrderStatus.OrderCreated)
+                        {
+                            await _hubContext.Clients.Group(SignalRGroups.Admins)
+                                .SendAsync("ReceiveOrderUpdate", $"{message} ", cancellationToken: stoppingToken);
+                                Console.WriteLine($" OrderId {orderEvent.OrderId}");
+                        }
+
+
+                        if (orderEvent.Status == OrderStatus.OutForDelivery)
+                        {
+                            await _hubContext.Clients.Groups($"user-{orderEvent.CustomerId}", SignalRGroups.Delivery)
+                                .SendAsync("ReceiveOrderUpdate", $"{message} ", cancellationToken: stoppingToken);
+                        }
+
+                        if (orderEvent.Status == OrderStatus.Delivered)
+                        {
+                            await _hubContext.Clients.Groups($"user-{orderEvent.CustomerId}", SignalRGroups.Admins)
+                                .SendAsync("ReceiveOrderUpdate", $"{message} ", cancellationToken: stoppingToken);
+                        }
+                       
+
+                        orderEvent.IsProcessed = true;
+                    }
+
+                    await _context.SaveChangesAsync(stoppingToken);
                 }
 
-                foreach (var entry in entries)
-                {
-                    var message = entry.Values.First(v => v.Name == "message").Value.ToString();
-                    var data = JsonSerializer.Deserialize<OrderMessage>(message);
-
-                    if (data.Type == "OrderCreated")
-                    {
-                        await _hubContext.Clients.Group(SignalRGroups.Admins)
-                            .SendAsync("ReceiveOrderUpdate", $"Order Created: OrderId {data.OrderId}", cancellationToken: stoppingToken);
-                    }
-
-
-                    if (data.Type == "OutForDelivery")
-                    {
-                        await _hubContext.Clients.Groups($"user-{data.CustomerId}", SignalRGroups.Delivery)
-                            .SendAsync("ReceiveOrderUpdate", $"{data.Type} for OrderId: {data.OrderId}", cancellationToken: stoppingToken);
-                    }
-
-                    if (data.Type == "Delivered")
-                    {
-                        await _hubContext.Clients.Groups($"user-{data.CustomerId}", SignalRGroups.Admins)
-                            .SendAsync("ReceiveOrderUpdate", $"{data.Type} for OrderId: {data.OrderId}", cancellationToken: stoppingToken);
-                    }
-
-
-                    await db.StreamAcknowledgeAsync(RedisConsts.OrdersStream, RedisConsts.OrdersGroup, entry.Id);
-                }
+                await Task.Delay(1000, stoppingToken);
             }
         }
     }
-
-    public record OrderMessage(string Type, int OrderId, int CustomerId);
 }

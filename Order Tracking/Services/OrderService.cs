@@ -1,10 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Order_Tracking.Consts;
-using System.Linq;
 
 namespace Order_Tracking.Services
 {
-    public class OrderService(ApplicationDbContext _context, IConnectionMultiplexer _redis) : IOrderService
+    public class OrderService(ApplicationDbContext _context) : IOrderService
     {
         public async Task<bool> AddAsync(OrderRequest request)
         {
@@ -18,7 +17,7 @@ namespace Order_Tracking.Services
                 CustomerId = request.CustomerId,
                 Address = request.Address,
                 TotalAmount = request.OrderItemsRequest.Sum(i => i.Quantity * i.UnitPrice),
-                OrderItems = request.OrderItemsRequest.Select(i => new OrderItem
+                OrderItems = request.OrderItemsRequest.Select(i => new OrderItems
                 {
                     ProductId = i.ProductId,
                     Quantity = i.Quantity,
@@ -29,9 +28,24 @@ namespace Order_Tracking.Services
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
 
-            var db = _redis.GetDatabase();
-            var message = JsonSerializer.Serialize(new { Type = "OrderCreated" , OrderId = order.Id, order.CustomerId });
-            await db.StreamAddAsync(RedisConsts.OrdersStream, new NameValueEntry[] { new(nameof(message), message) });
+            var orderEvent = new OrderEvents
+            {
+                OrderId = order.Id,
+                Status = OrderStatus.OrderCreated,
+                CreatedAt = DateTime.UtcNow,
+                IsProcessed = false,
+                CustomerId = request.CustomerId
+            };
+
+
+            _context.OrderEvents.Add(orderEvent);
+            await _context.SaveChangesAsync();
+
+            #region old
+            //var db = _redis.GetDatabase();
+            //var message = JsonSerializer.Serialize(new { Type = "OrderCreated" , OrderId = order.Id, order.CustomerId });
+            //await db.StreamAddAsync(RedisConsts.OrdersStream, new NameValueEntry[] { new(nameof(message), message) }); 
+            #endregion
 
             return true;
 
@@ -51,29 +65,47 @@ namespace Order_Tracking.Services
           
             order.Status = request.Status;
             order.UpdatedAt = DateTime.UtcNow;
+
+
             await _context.SaveChangesAsync();
 
 
 
-         
-            string messageType = request.Status switch
+            // STEP 2 — Add Event to OrderEvents table
+            var orderEvent = new OrderEvents
             {
-                OrderStatus.OutForDelivery => "OutForDelivery",
-                OrderStatus.Delivered => "Delivered",
-                _ => null!
+                OrderId = order.Id,
+                Status = request.Status,
+                CreatedAt = DateTime.UtcNow,
+                IsProcessed = false,
+                CustomerId = request.CustomerId
             };
 
-            if (messageType != null)
-            {
-                var db = _redis.GetDatabase();
-                var orderMessage = new OrderMessage(
-                                                    Type: messageType,
-                                                    OrderId: order.Id,
-                                                    CustomerId: request.CustomerId);
 
-                var message = JsonSerializer.Serialize(orderMessage);
-                await db.StreamAddAsync(RedisConsts.OrdersStream, new NameValueEntry[] { new (nameof(message), message) } );
-            }
+            _context.OrderEvents.Add(orderEvent);
+
+            await _context.SaveChangesAsync();
+            #region Old
+            //await _context.SaveChangesAsync();
+            //string messageType = request.Status switch
+            //{
+            //    OrderStatus.OutForDelivery => "OutForDelivery",
+            //    OrderStatus.Delivered => "Delivered",
+            //    _ => null!
+            //};
+
+            //if (messageType != null)
+            //{
+            //    var db = _redis.GetDatabase();
+            //    var orderMessage = new OrderMessage(
+            //                                        Type: messageType,
+            //                                        OrderId: order.Id,
+            //                                        CustomerId: request.CustomerId);
+
+            //    var message = JsonSerializer.Serialize(orderMessage);
+            //    await db.StreamAddAsync(RedisConsts.OrdersStream, new NameValueEntry[] { new (nameof(message), message) } );
+            //} 
+            #endregion
 
             return true;
 

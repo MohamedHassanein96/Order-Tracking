@@ -1,6 +1,6 @@
 ﻿namespace Order_Tracking.Entities
 {
-    public class OrderItem
+    public class OrderItems
     {
         public int Id { get; set; }
 

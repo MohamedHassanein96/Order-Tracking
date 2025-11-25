@@ -33,11 +33,12 @@ namespace Order_Tracking
             builder.Services.AddCors();
 
             // Redis Connection
-            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-                ConnectionMultiplexer.Connect("localhost:6379"));
+            //builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+            //    ConnectionMultiplexer.Connect("localhost:6379"));
 
             //Worker HostedService
             builder.Services.AddHostedService<OrderWorkerService>();
+            //builder.Services.AddSingleton<OrderWorkerService>();
 
          
 

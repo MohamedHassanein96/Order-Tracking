@@ -3,47 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Order Notifications</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h2 { color: #333; }
-        #messages { margin-top: 20px; }
-        .message { padding: 8px; border-bottom: 1px solid #ccc; }
-        .created { background-color: #e0f7fa; }
-        .delivered { background-color: #e8f5e9; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f6f7f9;
+        }
+        h2 {
+            color: #333;
+        }
+        #messages {
+            margin-top: 20px;
+            max-width: 600px;
+        }
+        .message {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .preparation {
+            background: #e8f4fd;
+            border-left: 5px solid #2196F3;
+        }
+        .delivery {
+            background: #fff8e1;
+            border-left: 5px solid #FB8C00;
+        }
+        .delivered {
+            background: #e8f5e9;
+            border-left: 5px solid #43A047;
+        }
+        .order-title {
+            font-size: 17px;
+            color: #111;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
+
     <h2>📦 Admin Order Notifications</h2>
     <div id="messages"></div>
 
     <script>
-        // إنشاء الاتصال بـ SignalR Hub
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl("https://localhost:7036/ordersHub") // غيّر البورت لو مشروعك مختلف
+            .withUrl("https://localhost:7036/ordersHub")
             .configureLogging(signalR.LogLevel.Information)
             .build();
 
-        // Callback عند استقبال رسالة
-        connection.on("ReceiveOrderUpdate", message => {
-            const msgDiv = document.getElementById("messages");
-            const p = document.createElement("p");
-            p.classList.add("message");
+       connection.on("ReceiveOrderUpdate", message => {
 
-            if(message.includes("OrderCreated")) p.classList.add("created");
-            if(message.includes("Delivered")) p.classList.add("delivered");
+    // استخراج رقم الأوردر بعد OrderId
+    const extracted = message.match(/OrderId\s+(\d+)/i);
+    const orderId = extracted ? extracted[1] : "Unknown";
 
-            p.textContent = "📢 " + message;
-            msgDiv.appendChild(p);
-        });
+    const msgDiv = document.getElementById("messages");
+    const box = document.createElement("div");
+    box.classList.add("message");
 
-        // بدء الاتصال والانضمام لمجموعة Admins
+    // تصنيف الرسالة حسب المحتوى
+    if (message.includes("Preparation")) {
+        box.classList.add("preparation");
+    }
+    else if (message.includes("Out For Delivery")) {
+        box.classList.add("delivery");
+    }
+    else if (message.includes("Delivered")) {
+        box.classList.add("delivered");
+    }
+
+    box.innerHTML = `
+        🔔 ${message}
+    `;
+
+    msgDiv.prepend(box);
+});
+
         connection.start()
             .then(() => {
-                console.log("✅ Connected to SignalR Hub");
-                connection.invoke("JoinAdminGroup"); // الانضمام لمجموعة Admins
+                console.log("Connected to SignalR");
+                connection.invoke("JoinAdminGroup");
             })
-            .catch(err => console.error("❌ Connection error:", err));
+            .catch(err => console.error(err));
     </script>
+
 </body>
 </html>

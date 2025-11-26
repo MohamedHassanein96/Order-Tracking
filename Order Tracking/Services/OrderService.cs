@@ -1,7 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Order_Tracking.Consts;
-
-namespace Order_Tracking.Services
+﻿namespace Order_Tracking.Services
 {
     public class OrderService(ApplicationDbContext _context) : IOrderService
     {

@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Order_Tracking.Consts;
 using Order_Tracking.Hubs;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Order_Tracking.Services
 {

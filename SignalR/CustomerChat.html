@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Customer Chat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/5.0.17/signalr.min.js"></script>
+<style>
+  .messages { height:200px; overflow:auto; border:1px solid #ccc; padding:5px; margin-bottom:5px; }
+</style>
+</head>
+<body>
+
+<h2>Customer Chat</h2>
+
+<div id="login">
+  <input type="text" id="userIdInput" placeholder="Enter your ID">
+  <button onclick="joinChat()">Join Chat</button>
+</div>
+
+<div id="chatBox" style="display:none;">
+  <div id="messages" class="messages"></div>
+  <input type="text" id="msgInput" placeholder="Write message...">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+let connection;
+let clientId;
+let roomName;
+
+async function joinChat() {
+  clientId = document.getElementById("userIdInput").value.trim();
+  if (!clientId) { alert("Enter your ID"); return; }
+
+  connection = new signalR.HubConnectionBuilder()
+    .withUrl("https://localhost:7036/chatHub")
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+  connection.on("ReceiveMessage", (rName, role, sender, msg) => {
+    roomName = rName;
+    const box = document.getElementById("messages");
+    box.innerHTML += `<div><b>${role} ${sender}:</b> ${msg}</div>`;
+    box.scrollTop = box.scrollHeight;
+  });
+
+  try {
+    await connection.start();
+    await connection.invoke("JoinCustomer", clientId);
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("chatBox").style.display = "block";
+  } catch (err) {
+    alert("Failed to connect: " + err.message);
+  }
+}
+
+async function sendMessage() {
+  const msg = document.getElementById("msgInput").value.trim();
+  if (!msg) return;
+  document.getElementById("msgInput").value = "";
+  await connection.invoke("SendMessage", msg, "Customer", clientId, roomName);
+}
+</script>
+
+</body>
+</html>

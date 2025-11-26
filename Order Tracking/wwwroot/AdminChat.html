@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Support Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+</head>
+<body>
+
+    <h2>Support Dashboard</h2>
+
+    <div id="messages" style="border:1px solid #ccc; height:250px; overflow:auto; padding:10px; margin-bottom:20px;"></div>
+
+    <input type="text" id="targetUserId" placeholder="Customer ID" />
+    <br><br>
+
+    <input type="text" id="msgInput" placeholder="Write a message..." />
+    <button onclick="sendToCustomer()">Send</button>
+
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .build();
+
+        // === (1) استقبل رسائل من العملاء ===
+        connection.on("ReceiveFromCustomer", (message) => {
+            const box = document.getElementById("messages");
+            box.innerHTML += `<div><b>Customer:</b> ${message}</div>`;
+        });
+
+        // === بعد الاتصال ندخل جروب الموظفين ===
+        connection.start().then(() => {
+            connection.invoke("JoinGroup", "support");  // ندخل جروب اسمه support
+        });
+
+        // === (2) الموظف يرسل رسالة للعميل ===
+        function sendToCustomer() {
+            const userId = document.getElementById("targetUserId").value;
+            const msg = document.getElementById("msgInput").value;
+
+            if (!userId || !msg) {
+                alert("Enter user ID and message!");
+                return;
+            }
+
+            connection.invoke("SendMessageToCustomer", userId, msg);
+
+            const box = document.getElementById("messages");
+            box.innerHTML += `<div><b>You → ${userId}:</b> ${msg}</div>`;
+
+            document.getElementById("msgInput").value = "";
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Support Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/5.0.17/signalr.min.js"></script>
+<style>
+  .chat-room { border:1px solid #ccc; padding:5px; margin-bottom:10px; }
+  .messages { height:150px; overflow:auto; border:1px solid #aaa; padding:5px; margin-bottom:5px; }
+</style>
+</head>
+<body>
+
+<h2>Support Dashboard</h2>
+
+<div>
+  <input type="text" id="supportIdInput" placeholder="Your Support ID">
+  <button onclick="joinSupport()">Go Online</button>
+</div>
+
+<div id="chatContainer"></div>
+
+<script>
+let connection;
+let supportId;
+let rooms = {}; // roomName => clientId
+
+async function joinSupport() {
+  supportId = document.getElementById("supportIdInput").value.trim();
+  if (!supportId) { alert("Enter your Support ID"); return; }
+
+  connection = new signalR.HubConnectionBuilder()
+    .withUrl("https://localhost:7036/chatHub")
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+  connection.on("ReceiveMessage", (roomName, role, senderId, msg) => {
+    // لو الغرفة مش موجودة نعملها عند أول رسالة من العميل
+    if (!rooms[roomName]) {
+      createRoomBox(roomName, senderId);
+      rooms[roomName] = senderId;
+    }
+    const box = document.getElementById(`msg-${roomName}`);
+    box.innerHTML += `<div><b>${role} ${senderId}:</b> ${msg}</div>`;
+    box.scrollTop = box.scrollHeight;
+  });
+
+  try {
+    await connection.start();
+    await connection.invoke("JoinSupport", supportId);
+  } catch (err) {
+    alert("Failed to connect: " + err.message);
+  }
+}
+
+function createRoomBox(roomName, clientId) {
+  const container = document.createElement("div");
+  container.className = "chat-room";
+  container.id = `room-${roomName}`;
+  container.innerHTML = `
+    <h4>Chat with Customer ${clientId}</h4>
+    <div id="msg-${roomName}" class="messages"></div>
+    <input type="text" id="input-${roomName}" placeholder="Write message...">
+    <button onclick="sendToRoom('${roomName}')">Send</button>
+  `;
+  document.getElementById("chatContainer").appendChild(container);
+}
+
+async function sendToRoom(roomName) {
+  const input = document.getElementById(`input-${roomName}`);
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+  await connection.invoke("SendMessage", msg, "Support", supportId, roomName);
+}
+</script>
+
+</body>
+</html>
